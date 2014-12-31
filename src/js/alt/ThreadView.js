@@ -33,10 +33,6 @@ var ThreadView = React.createClass({
     this.bindKey('y', this._archive);
   },
 
-  componentWillReceiveProps(nextProps:Object):void {
-    console.log('ThreadView#componentWillReceiveProps', nextProps);
-  },
-
   _archive() {
     this.props.onThreadLabelRemoved(this.props.thread, BuildInLabelKeys.INBOX);
   },
