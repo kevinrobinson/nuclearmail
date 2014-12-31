@@ -46,7 +46,6 @@ var SearchBox = React.createClass({
   },
 
   render(): any {
-    console.log('SearchBox.query', this.props.query);
     return (
       <span style={this.props.style}>
         <input

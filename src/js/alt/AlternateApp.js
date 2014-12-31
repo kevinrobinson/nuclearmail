@@ -5,6 +5,8 @@ require('es6-shim');
 // Modified code
 var SearchBox = require('./SearchBox');
 var ThreadsWithMessagesAPI = require('./ThreadsWithMessagesAPI');
+var ThreadView = require('./ThreadView');
+var Scroller = require('../Scroller');
 
 // Original code
 var API = require('../API');
@@ -19,11 +21,9 @@ var LoginModal = require('../LoginModal');
 // var MessageStore = require('../MessageStore');
 var Nav = require('../Nav');
 var React = require('react');
-var Scroller = require('../Scroller');
 // var StoreToStateMixin = require('./StoreToStateMixin');
 // var ThreadActions = require('./ThreadActions');
 // var ThreadStore = require('./ThreadStore');
-// var ThreadView = require('./ThreadView');
 var _ = require('lodash');
 var asap = require('asap');
 var moment = require('moment');
@@ -126,23 +126,6 @@ var styles = {
     padding: '20px',
   },
 };
-
-var pagingMessages = [
-  'Still going?',
-  'Now you\'re just getting greedy.',
-  '\u266b I still haven\'t found what I\'m lookin\' for. \u266b',
-  'I could go on forever.',
-  'Perhaps you should narrow the search term?',
-  'Look at you go!',
-  '\u266b This is the song that never ends \u266b',
-  '\u266b Scrollin, scrollin, scrollin through the emails \u266b',
-  'Really?',
-  'Give up, you\'ll never find it now.',
-  'I know it must be here somewhere.',
-  'You can do it!',
-  'Eventually you\'ll just give up.',
-  'Dig dig dig!'
-];
 
 
 // Expose React for the dev tools
@@ -382,10 +365,12 @@ var MailContents = React.createClass({
 
   // TODO(kr)
   onThreadLabelAdded(thread: Object, label: string):void {
+    console.log('thread label added', thread, label);
   },
 
   // TODO(kr)
-  onThreadLabelRemoved(thread: Object, label: string):void {
+  onThreadLabelRemoved(thread:Object, label:string):void {
+    console.log('thread label removed', thread, label);
   },
 
   // TODO(kr) if this thread is no longer in the thread list, then
@@ -394,8 +379,8 @@ var MailContents = React.createClass({
   // mail, this doesn't remove the thread.
   // Instead, can we remove this altogether and let the Action update the state and
   // remove it from the `thread` state, naturally tearing down the message view with it?
-  onThreadClosed():void {
-  },
+  // onThreadClosed():void {
+  // },
 
   // Move this back to be computed, rather than precomputed and synced.
   // Optimize only by calling once in `render`.
@@ -417,31 +402,26 @@ var MailContents = React.createClass({
     );
   },
 
+  getSelectedMessageId():number {
+    var selectedThread = this.getSelectedThread();
+    return (selectedThread && selectedThread.messages.length > 0)
+      ? _.last(selectedThread.messages).id
+      : null;
+  },
+
   // TODO(kr) factor out to helper, concretize this data type?
   hasMoreThreads():boolean {
     return !!this.state.threadsWithMessagesResponse.nextPageToken;
   },
 
-  render(): any {
+  render():any {
     if (!this.state.threadsWithMessagesResponse) {
       return <div>loading emails...</div>;
     }
-
-    var selectedThread = this.getSelectedThread();
     return (
       <div style={styles.messages}>
         {this.renderThreads()}
-        <div style={styles.threadView}>
-          {selectedThread ? (
-            <ThreadView
-              thread={selectedThread}
-              selectedMessageId={this.state.selectedMessageId}
-              onThreadLabelAdded={this.onThreadLabelAdded}
-              onThreadLabelRemoved={this.onThreadLabelRemoved}
-              // onThreadClosed={this.onThreadClosed} TODO(kr) can we remove this?
-            />
-          ) : null}
-        </div>
+        {this.renderMessagesInThread()}
       </div>
     );
   },
@@ -460,37 +440,82 @@ var MailContents = React.createClass({
         hasMore={this.hasMoreThreads()}
         isScrollContainer={true}
         onRequestMoreItems={this.onRequestMoreThreads}>
-        <BlockMessageList
-          labels={this.props.labels}
-          messages={lastMessages}
-          onMessageSelected={this.onMessageSelected}
-          selectedMessageId={this.state.selectedMessageId}
-        />
-
+        <div>
+          <BlockMessageList
+            labels={this.props.labels}
+            messages={lastMessages}
+            onMessageSelected={this.onMessageSelected}
+            selectedMessageID={this.getSelectedMessageId()}
+          />
+          {this.renderMoreThreadsMessage()}
+        </div>
       </Scroller>
+    );
+    // return (
+    //   <div style={styles.messagesList}>
+    //     <BlockMessageList
+    //       labels={this.props.labels}
+    //       messages={lastMessages}
+    //       onMessageSelected={this.onMessageSelected}
+    //       selectedMessageID={this.getSelectedMessageId()}
+    //     />
+    //     {this.renderMoreThreadsMessage()}
+    //   </div>
+    // );
+  },
+
+  renderMoreThreadsMessage(): any {
+    if (!this.hasMoreThreads()) {
+      return null;
+    }
+
+    var pagingMessages = [
+      'Still going?',
+      'Now you\'re just getting greedy.',
+      '\u266b I still haven\'t found what I\'m lookin\' for. \u266b',
+      'I could go on forever.',
+      'Perhaps you should narrow the search term?',
+      'Look at you go!',
+      '\u266b This is the song that never ends \u266b',
+      '\u266b Scrollin, scrollin, scrollin through the emails \u266b',
+      'Really?',
+      'Give up, you\'ll never find it now.',
+      'I know it must be here somewhere.',
+      'You can do it!',
+      'Eventually you\'ll just give up.',
+      'Dig dig dig!'
+    ];
+
+    var threadsWithMessages = this.state.threadsWithMessagesResponse.threadsWithMessages;
+    return (
+      <div style={styles.messageLoading}>
+        You{"'"}ve seen {threadsWithMessages.length}.
+        {threadsWithMessages.length >= 100 ? (
+          ' ' + _.sample(pagingMessages)
+        ) : null}
+        {' '}Loading more threads...
+      </div>
+    );
+  },
+
+  renderMessagesInThread(): any {
+    var selectedThread = this.getSelectedThread();
+
+    return (
+      <div style={styles.threadView}>
+        {selectedThread ? (
+          <ThreadView
+            thread={selectedThread}
+            selectedMessageId={this.getSelectedMessageId()}
+            onThreadLabelAdded={this.onThreadLabelAdded}
+            onThreadLabelRemoved={this.onThreadLabelRemoved}
+            // onThreadClosed={this.onThreadClosed} TODO(kr) can we remove this?
+          />
+        ) : null}
+      </div>
     );
   },
 });
 
-
-        // <BlockMessageList
-        //   // labels={this.state.labels.result}
-        //   // messages={this.state.lastMessages.result}
-        //   // onMessageSelected={this._onMessageSelected}
-        //   // selectedMessageID={this.state.selectedMessageID}
-        //   labels={this.props.labels}
-        //   messages={lastMessages}
-        //   onThreadSelected={this.onThreadSelected}
-        //   selectedMessageId={this.state.selectedMessageId}
-        // />
-        // {this.hasMoreThreads() ? (
-        //   <div style={styles.messageLoading}>
-        //     You{"'"}ve seen {threadsWithMessages.length}.
-        //     {threadsWithMessages.length >= 100 ? (
-        //       ' ' + _.sample(pagingMessages)
-        //     ) : null}
-        //     {' '}Loading more threads...
-        //   </div>
-        // ) : null}
 
 React.render(<App />, document.querySelector('#app'));
