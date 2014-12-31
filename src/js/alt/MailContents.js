@@ -38,6 +38,7 @@ var styles = {
   },
 };
 
+
 module.exports = React.createClass({
   propTypes: {
     query: React.PropTypes.string.isRequired,
@@ -93,7 +94,7 @@ module.exports = React.createClass({
     this.setState({maxResults: this.state.maxResults + this.props.pageSize});
   },
 
-  // TODO(kr) this is really about a Thread being selected, but not refactoring
+  // TODO(kr) this is really about a Thread being selected, but not going to refactor
   // the BlockMessageList for now.
   onMessageSelected(message: Object):void {
     this.onThreadSelected(message.threadID);
@@ -248,3 +249,40 @@ module.exports = React.createClass({
     );
   },
 });
+
+
+
+
+// TODO(kr) experiment with defining these up top for this region of code.  these would
+// be instance properties/methods on the component.
+// TODO(kr) sketch of keeping localized registry of user actions, for
+// understandability-at-a-glance.
+//
+// Usage API changes from:
+//   onMessageSelected={this.onMessageSelected}
+// to
+// onMessageSelected={this.handleAction.bind(this, this.UserEvents.SELECTED_MESSAGE)}
+//
+// UserActions: {
+//   REQUESTED_MORE_THREADS: 'REQUESTED_MORE_THREADS',
+//   SELECTED_MESSAGE: 'SELECTED_MESSAGE',
+//   ADDED_LABEL_TO_THREAD: 'ADDED_LABEL_TO_THREAD',
+//   REMOVED_LABEL_TO_THREAD: 'REMOVED_LABEL_TO_THREAD',
+// },
+//
+// handleAction: (action, ...payload) {
+//   switch (action) {
+//     case this.UserActions.REQUESTED_MORE_THREADS:
+//       return this.onRequestMoreThreads();
+//     case this.UserActions.SELECTED_MESSAGE:
+//       var [message] = payload;
+//       return this.UserActions.onMessageSelected(message);
+//     case this.UserActions.ADDED_LABEL_TO_THREAD:
+//       var [thread, label] = payload;
+//       return this.onThreadLabelAdded(thread, label);
+//       break;
+//     case this.UserActions.REMOVED_LABEL_TO_THREAD:
+//       var [thread, label] = payload;
+//       return this.onThreadLabelRemoved(thread, label);
+//   }
+// },

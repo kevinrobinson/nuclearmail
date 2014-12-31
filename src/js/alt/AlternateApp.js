@@ -75,6 +75,7 @@ var styles = {
 
   logo: {
     color: Colors.accent,
+    cursor: 'pointer',
     fontSize: '24px',
     fontWeight: 'bold',
     lineHeight: '32px',
@@ -205,6 +206,7 @@ var App = React.createClass({
   // could do this by invalidating the caches, and having others listen for that, but
   // that introduces a side channel of communication.
   onRefresh() {
+    console.log('TODO onRefresh');
   },
 
   onLogoClick() {
