@@ -23,7 +23,7 @@ var SearchBox = React.createClass({
     };
   },
 
-  componentWillReceiveProps(nextProps): void {
+  componentWillReceiveProps(nextProps:Object): void {
     this.setState({ inputValue: nextProps.query });
   },
 

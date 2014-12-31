@@ -6,6 +6,17 @@ var MessageTranslator = require('../MessageTranslator');
 var RSVP = require('rsvp');
 var _ = require('lodash');
 
+// Refactored the API calls to simplify it and pull out interactions with the
+// Dispatcher.  Basically, we're making things more complex by decoupling
+// on artificial seams.
+// This couples the threads and messages requests, since we need both to do
+// anything in the UI.
+// This also decouples API mechanics from caching semantics, which is where the real
+// source of complexity it.
+// TODO(kr) This doesn't expose a way for callers to abort or retry requests, which is
+// not great from an architectural perspective, especially considering there are chains
+// of requests here.
+
 function zipThreadsAndMessages(threadsResponse: Object, messagesResponse: Object) {
   var threadIds = (threadsResponse.threads || []).map(thread => thread.id);
   var threadsWithMessages = threadIds.map(threadId => {
@@ -54,9 +65,8 @@ function makeRequest(
         return zipThreadsAndMessages(threadsResponse, {});
       }
 
-      // TODO(kr) remove cap on messages
-      var batchMessagesRequest = requestForAllMessagesInThreads(_.first(threadIds, 5))
-      console.log('makeRequest: batch request for TRUNCATED messages: ', _.first(threadIds, 5));
+      var batchMessagesRequest = requestForAllMessagesInThreads(threadIds);
+      console.log('makeRequest: batch request for threadIds.length: ', threadIds.length);
       return API.execute(batchMessagesRequest).then(messagesResponse => {
         return zipThreadsAndMessages(threadsResponse, messagesResponse);
       });

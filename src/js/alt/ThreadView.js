@@ -33,28 +33,28 @@ var ThreadView = React.createClass({
     this.bindKey('y', this._archive);
   },
 
-  componentWillReceiveProps(nextProps):void {
+  componentWillReceiveProps(nextProps:Object):void {
     console.log('ThreadView#componentWillReceiveProps', nextProps);
   },
 
   _archive() {
-    this.props.onThreadLabelRemoved(BuildInLabelKeys.INBOX);
+    this.props.onThreadLabelRemoved(this.props.thread, BuildInLabelKeys.INBOX);
   },
 
   _moveToInbox() {
-    this.props.onThreadLabelAdded(BuildInLabelKeys.INBOX);
+    this.props.onThreadLabelAdded(this.props.thread, BuildInLabelKeys.INBOX);
   },
 
   _markAsUnread() {
-    this.props.onThreadLabelRemoved(BuildInLabelKeys.UNREAD);
+    this.props.onThreadLabelRemoved(this.props.thread, BuildInLabelKeys.UNREAD);
   },
 
   _star() {
-    this.props.onThreadLabelAdded(BuildInLabelKeys.STARRED);
+    this.props.onThreadLabelAdded(this.props.thread, BuildInLabelKeys.STARRED);
   },
 
   _unstar() {
-    this.props.onThreadLabelRemoved(BuildInLabelKeys.STARRED);
+    this.props.onThreadLabelRemoved(this.props.thread, BuildInLabelKeys.STARRED);
   },
 
   render(): ?Object {

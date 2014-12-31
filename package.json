@@ -16,6 +16,7 @@
     "google-caja": "0.0.2",
     "keyboardjs": "^0.4.2",
     "lodash": "^2.4.1",
+    "lru-cache": "^2.5.0",
     "md5": "^1.0.1",
     "moment": "^2.8.3",
     "react": "^0.12.0",

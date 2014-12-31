@@ -1,9 +1,10 @@
-
 /** @flow */
 
-var API = require('./API');
-var Button = require('./Button');
-var Colors = require('./Colors');
+// Kevin: forked just to change the copy
+
+var API = require('../API');
+var Button = require('../Button');
+var Colors = require('../Colors');
 var React = require('react');
 
 var PureRenderMixin = React.addons.PureRenderMixin;
@@ -20,12 +21,12 @@ var LoginModal = React.createClass({
       <div style={styles.overlay}>
         <div style={styles.dialog}>
           <h1 style={styles.title}>
-            ☢ NUCLEARMAIL
+            ☢ AtomicMail
           </h1>
           <p style={styles.description}>
-            NuclearMail is an experiment of writing a webmail client using React
-            and the Flux architecture. It runs completely in the browser and
-            uses the Gmail REST API.
+            AtomicMail is an experiment of writing a webmail client using React
+            <strong>without</strong> the Flux architecture, based mostly off of the awesome
+            NuclearMail by Ian Obermiller. It runs completely in the browser and uses the Gmail REST API.
           </p>
           <Button onClick={this._onLoginClick}>
             Login with Google

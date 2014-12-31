@@ -2,38 +2,46 @@
 
 require('es6-shim');
 
+
+// New code
+var LRU = require("lru-cache");
+var MailContents = require('./MailContents');
+
 // Modified code
 var SearchBox = require('./SearchBox');
-var ThreadsWithMessagesAPI = require('./ThreadsWithMessagesAPI');
-var ThreadView = require('./ThreadView');
-var Scroller = require('../Scroller');
+var LoginModal = require('./LoginModal');
 
-// Original code
+// Original code, unchanged
 var API = require('../API');
-var BlockMessageList = require('../BlockMessageList');
 var Button = require('../Button');
 var Colors = require('../Colors');
 var CSSAnimation = require('../CSSAnimation');
 var InteractiveStyleMixin = require('../InteractiveStyleMixin');
-var KeybindingMixin = require('../KeybindingMixin');
-// var LabelStore = require('./LabelStore');
-var LoginModal = require('../LoginModal');
-// var MessageStore = require('../MessageStore');
 var Nav = require('../Nav');
 var React = require('react');
+var _ = require('lodash');
+var moment = require('moment');
+
+// Unchanged, but factored out
+// var BlockMessageList = require('../BlockMessageList');
+// var ThreadView = require('./ThreadView');
+// var Scroller = require('../Scroller');
+
+// Removed from original code
+// TODO(kr) why was asap needed in the first place?
+// var asap = require('asap');
+// var LabelStore = require('./LabelStore');
+// var MessageStore = require('../MessageStore');
 // var StoreToStateMixin = require('./StoreToStateMixin');
 // var ThreadActions = require('./ThreadActions');
 // var ThreadStore = require('./ThreadStore');
-var _ = require('lodash');
-var asap = require('asap');
-var moment = require('moment');
-
+// var KeybindingMixin = require('../KeybindingMixin');
 // var PureRenderMixin = React.addons.PureRenderMixin;
 
 
 // Flow types I added:
 type Promise<T> = {then: (x: T) => Promise<any>};
-var AuthorizationEnum = {
+var AuthorizationStates = {
   NOT_AUTHORIZED: 'not_authorized',
   AUTHORIZED: 'authorized',
   AUTHORIZING: 'authorizing',
@@ -85,27 +93,6 @@ var styles = {
     marginLeft: '12px',
   },
 
-  messages: {
-    bottom: 0,
-    display: 'flex',
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: '104px',
-  },
-
-  messagesList: {
-    flex: 1,
-    height: '100%',
-    minWidth: '300px',
-    maxWidth: '400px',
-  },
-
-  threadView: {
-    flex: 2,
-    height: '100%',
-  },
-
   spinner: {
     left: 0,
     position: 'fixed',
@@ -120,11 +107,6 @@ var styles = {
     height: '4px',
     margin: '0 auto',
   },
-
-  messageLoading: {
-    textAlign: 'center',
-    padding: '20px',
-  },
 };
 
 
@@ -134,10 +116,10 @@ window.React = React;
 /* sketch!
 This changes `labels` to have all labels in the navigation.
 
-App @state:{ query, labels, threadsCache, messagesCache }
+App @state:{ query, labels, threadsCache }
   SearchBar{ query, onQueryChanged }
   Labels{ labels, onLabelClicked }
-  Contents{ query, labels, threadsCache, messagesCache }, @state:{ threads, selectedThreadId, maxResults }
+  Contents{ query, labels, threadsCache }, @state:{ threads, selectedThreadId, maxResults }
     Threads{ threads, selectedThreadId, maxResults } onThreadClicked, onWantsMoreThreads }
     Messages{ threadId, messages }
       ButtonBar{ threadId, onThreadAddedLabel, onThreadRemovedLabel }
@@ -160,10 +142,18 @@ var App = React.createClass({
       authorizationState: 'not_authorized',
       labels: null, // Array or null
       query: 'in:inbox',
-      // TODO(kr)
-      // threadsCache: @props.threadsCache ? new Cache(),
-      // messagesCache: @props.threadsCache ? new Cache(),
+      threadsCache: this.props.threadsCache || this.createThreadCache(),
     };
+  },
+
+  // TODO(kr) this isn't really the API I want, but can add some
+  // value right away.  It'll feel weird to users why these expire
+  // every so often when working interactively.
+  createThreadCache() {
+    return LRU({
+      max: 500,
+      maxAge: 1000 * 60, // 1 minute
+    });
   },
 
   componentDidMount() {
@@ -188,7 +178,7 @@ var App = React.createClass({
 
   onAuthorizationChanged(isAuthorized: boolean) {
     this.setState({
-      authorizationState: isAuthorized ? AuthorizationEnum.AUTHORIZED : AuthorizationEnum.NOT_AUTHORIZED
+      authorizationState: isAuthorized ? AuthorizationStates.AUTHORIZED : AuthorizationStates.NOT_AUTHORIZED
     });
   },
 
@@ -208,7 +198,6 @@ var App = React.createClass({
   },
 
   onQueryChanged(query: string) {
-    console.log('onQueryChanged', query);
     this.setState({query});
   },
 
@@ -264,11 +253,11 @@ var App = React.createClass({
   },
 
   renderAuthorizationOrContent(): any {
-    if (this.state.authorizationState === AuthorizationEnum.AUTHORIZED) {
+    if (this.state.authorizationState === AuthorizationStates.AUTHORIZED) {
       return this.renderContent();
-    } else if (this.state.authorizationState == AuthorizationEnum.NOT_AUTHORIZED) {
+    } else if (this.state.authorizationState == AuthorizationStates.NOT_AUTHORIZED) {
       return this.renderLogin();
-    } else if (this.state.authorizationState == AuthorizationEnum.AUTHORIZING) {
+    } else if (this.state.authorizationState == AuthorizationStates.AUTHORIZING) {
       return <div>authorizing...</div>;
     } else {
       throw new Error('invalid authorizationState', this.state.authorizationState);
@@ -276,7 +265,7 @@ var App = React.createClass({
   },
 
   renderLogin(): any {
-    return (this.state.authorizationState === AuthorizationEnum.NOT_AUTHORIZED) ? <LoginModal /> : null;
+    return (this.state.authorizationState === AuthorizationStates.NOT_AUTHORIZED) ? <LoginModal /> : null;
   },
 
   // TODO(kr) better factoring with loading labels
@@ -290,232 +279,12 @@ var App = React.createClass({
         key={this.state.query}
         query={this.state.query}
         labels={this.state.labels}
+        threadsCache={this.state.threadsCache}
       />
     );
   }
 });
 
-
-// TODO(kr) split out to another file
-var MailContents = React.createClass({
-  propTypes: {
-    query: React.PropTypes.string.isRequired,
-    labels: React.PropTypes.arrayOf(React.PropTypes.object).isRequired,
-    // threadsCache={this.state.threadsCache}
-    // messagesCache={this.state.messagesCache}
-    pageSize: React.PropTypes.number
-  },
-
-  getDefaultProps() {
-    return {
-      pageSize: 5,
-    };
-  },
-
-  getInitialState():Object {
-    return {
-      threadsWithMessagesResponse: null,
-      selectedThreadId: null,
-      maxResults: this.props.pageSize,
-    };
-  },
-
-  // TODO(kr) lifecycle for receiving new props - this is the yuck
-  componentDidMount() {
-    this.requestThreadsWithMessages().then(this.onThreadsWithMessagesLoaded);
-  },
-
-  // TODO(kr) wrap in cache
-  // this api call is stateless, but good to call out that api is stateless,
-  // also to describe the mechanics of aborting requests
-  // TODO(kr) will need to refactor the API to simplify it and pull out
-  // dispatcher calls.  Basically, we're making things more complex by decoupling
-  // on artificial seams.
-  // This couples the threads and messages requests, since we need both to do
-  // anything in the UI.
-  // TODO(kr) improve typing here
-  requestThreadsWithMessages():Promise<any> {
-    return ThreadsWithMessagesAPI.makeRequest({
-      query: this.props.query,
-      maxResults: this.state.maxResults
-    });
-  },
-
-  onThreadsWithMessagesLoaded(threadsWithMessagesResponse: Object):void {
-    this.setState({threadsWithMessagesResponse});
-  },
-
-  // TODO(kr) this doesn't actually page, but requests the whole set again
-  onRequestMoreThreads():void {
-    this.setState({maxResults: this.state.maxResults + this.props.pageSize});
-  },
-
-  // TODO(kr) this is really about a Thread being selected, but not refactoring
-  // the BlockMessageList for now.
-  onMessageSelected(message: Object):void {
-    this.onThreadSelected(message.threadID);
-  },
-
-  // TODO(kr) this updates state optimistically, and also side effects to the
-  // server.  In the nuclear example, both these effects are in the top-level
-  // app and in the component, not in an Action.
-  onThreadSelected(threadId: number):void {
-    this.setState({ selectedThreadId: threadId });
-  },
-
-  // TODO(kr)
-  onThreadLabelAdded(thread: Object, label: string):void {
-    console.log('thread label added', thread, label);
-  },
-
-  // TODO(kr)
-  onThreadLabelRemoved(thread:Object, label:string):void {
-    console.log('thread label removed', thread, label);
-  },
-
-  // TODO(kr) if this thread is no longer in the thread list, then
-  // advance state to next thread.  The implementation in nuclear mail doesn't
-  // quite handle this correctly, since if you're in an view that is showing archived
-  // mail, this doesn't remove the thread.
-  // Instead, can we remove this altogether and let the Action update the state and
-  // remove it from the `thread` state, naturally tearing down the message view with it?
-  // onThreadClosed():void {
-  // },
-
-  // Move this back to be computed, rather than precomputed and synced.
-  // Optimize only by calling once in `render`.
-  getLastMessages():Array<Object> {
-    if (!this.state.threadsWithMessagesResponse) {
-      return [];
-    }
-
-    var threadsWithMessages = this.state.threadsWithMessagesResponse.threadsWithMessages;
-    return threadsWithMessages.map(threadWithMessages => {
-      return _.last(threadWithMessages.messages);
-    });
-  },
-
-  getSelectedThread():Object {
-    return this.state.selectedThreadId && _.find(
-      this.state.threadsWithMessagesResponse.threadsWithMessages,
-      {id: this.state.selectedThreadId}
-    );
-  },
-
-  getSelectedMessageId():number {
-    var selectedThread = this.getSelectedThread();
-    return (selectedThread && selectedThread.messages.length > 0)
-      ? _.last(selectedThread.messages).id
-      : null;
-  },
-
-  // TODO(kr) factor out to helper, concretize this data type?
-  hasMoreThreads():boolean {
-    return !!this.state.threadsWithMessagesResponse.nextPageToken;
-  },
-
-  render():any {
-    if (!this.state.threadsWithMessagesResponse) {
-      return <div>loading emails...</div>;
-    }
-    return (
-      <div style={styles.messages}>
-        {this.renderThreads()}
-        {this.renderMessagesInThread()}
-      </div>
-    );
-  },
-
-  renderThreads():any {
-    var lastMessages = this.getLastMessages();
-    if (lastMessages.length === 0) {
-      return <div style={styles.messagesList} />;
-    }
-
-    var threadsWithMessages = this.state.threadsWithMessagesResponse.threadsWithMessages;
-    console.log('renderThreads for threadsWithMessages: ', threadsWithMessages);
-    return (
-      <Scroller
-        style={styles.messagesList}
-        hasMore={this.hasMoreThreads()}
-        isScrollContainer={true}
-        onRequestMoreItems={this.onRequestMoreThreads}>
-        <div>
-          <BlockMessageList
-            labels={this.props.labels}
-            messages={lastMessages}
-            onMessageSelected={this.onMessageSelected}
-            selectedMessageID={this.getSelectedMessageId()}
-          />
-          {this.renderMoreThreadsMessage()}
-        </div>
-      </Scroller>
-    );
-    // return (
-    //   <div style={styles.messagesList}>
-    //     <BlockMessageList
-    //       labels={this.props.labels}
-    //       messages={lastMessages}
-    //       onMessageSelected={this.onMessageSelected}
-    //       selectedMessageID={this.getSelectedMessageId()}
-    //     />
-    //     {this.renderMoreThreadsMessage()}
-    //   </div>
-    // );
-  },
-
-  renderMoreThreadsMessage(): any {
-    if (!this.hasMoreThreads()) {
-      return null;
-    }
-
-    var pagingMessages = [
-      'Still going?',
-      'Now you\'re just getting greedy.',
-      '\u266b I still haven\'t found what I\'m lookin\' for. \u266b',
-      'I could go on forever.',
-      'Perhaps you should narrow the search term?',
-      'Look at you go!',
-      '\u266b This is the song that never ends \u266b',
-      '\u266b Scrollin, scrollin, scrollin through the emails \u266b',
-      'Really?',
-      'Give up, you\'ll never find it now.',
-      'I know it must be here somewhere.',
-      'You can do it!',
-      'Eventually you\'ll just give up.',
-      'Dig dig dig!'
-    ];
-
-    var threadsWithMessages = this.state.threadsWithMessagesResponse.threadsWithMessages;
-    return (
-      <div style={styles.messageLoading}>
-        You{"'"}ve seen {threadsWithMessages.length}.
-        {threadsWithMessages.length >= 100 ? (
-          ' ' + _.sample(pagingMessages)
-        ) : null}
-        {' '}Loading more threads...
-      </div>
-    );
-  },
-
-  renderMessagesInThread(): any {
-    var selectedThread = this.getSelectedThread();
-
-    return (
-      <div style={styles.threadView}>
-        {selectedThread ? (
-          <ThreadView
-            thread={selectedThread}
-            selectedMessageId={this.getSelectedMessageId()}
-            onThreadLabelAdded={this.onThreadLabelAdded}
-            onThreadLabelRemoved={this.onThreadLabelRemoved}
-            // onThreadClosed={this.onThreadClosed} TODO(kr) can we remove this?
-          />
-        ) : null}
-      </div>
-    );
-  },
-});
 
 
 React.render(<App />, document.querySelector('#app'));

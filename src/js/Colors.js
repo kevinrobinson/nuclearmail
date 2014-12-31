@@ -5,7 +5,7 @@ var _ = require('lodash');
 
 var Colors = _.mapValues(
   {
-    accent: '#ff6817',
+    accent: '#1768ff', // Kevin: I changed this in the original
     black: '#000',
     gray1: '#eee',
     gray2: '#ccc',
