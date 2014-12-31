@@ -225,6 +225,7 @@ var App = React.createClass({
   },
 
   onQueryChanged(query: string) {
+    console.log('onQueryChanged', query);
     this.setState({query});
   },
 
@@ -281,7 +282,7 @@ var App = React.createClass({
 
   renderAuthorizationOrContent(): any {
     if (this.state.authorizationState === AuthorizationEnum.AUTHORIZED) {
-      return this.renderContents();
+      return this.renderContent();
     } else if (this.state.authorizationState == AuthorizationEnum.NOT_AUTHORIZED) {
       return this.renderLogin();
     } else if (this.state.authorizationState == AuthorizationEnum.AUTHORIZING) {
@@ -296,13 +297,14 @@ var App = React.createClass({
   },
 
   // TODO(kr) better factoring with loading labels
-  renderContents(): any {
+  renderContent(): any {
     if (!this.state.labels) {
       return <div>loading labels...</div>;
     }
 
     return (
       <MailContents
+        key={this.state.query}
         query={this.state.query}
         labels={this.state.labels}
       />
@@ -365,10 +367,17 @@ var MailContents = React.createClass({
     this.setState({maxResults: this.state.maxResults + this.props.pageSize});
   },
 
+  // TODO(kr) this is really about a Thread being selected, but not refactoring
+  // the BlockMessageList for now.
+  onMessageSelected(message: Object):void {
+    this.onThreadSelected(message.threadID);
+  },
+
   // TODO(kr) this updates state optimistically, and also side effects to the
   // server.  In the nuclear example, both these effects are in the top-level
   // app and in the component, not in an Action.
-  onThreadSelected(message: Object):void {
+  onThreadSelected(threadId: number):void {
+    this.setState({ selectedThreadId: threadId });
   },
 
   // TODO(kr)
@@ -454,7 +463,7 @@ var MailContents = React.createClass({
         <BlockMessageList
           labels={this.props.labels}
           messages={lastMessages}
-          onThreadSelected={this.onThreadSelected}
+          onMessageSelected={this.onMessageSelected}
           selectedMessageId={this.state.selectedMessageId}
         />
 
