@@ -39,6 +39,7 @@ var styles = {
 };
 
 
+
 module.exports = React.createClass({
   propTypes: {
     query: React.PropTypes.string.isRequired,
