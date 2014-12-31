@@ -49,7 +49,7 @@ module.exports = React.createClass({
 
   getDefaultProps() {
     return {
-      pageSize: 5,
+      pageSize: 10,
     };
   },
 
@@ -64,7 +64,7 @@ module.exports = React.createClass({
   // TODO(kr) lifecycle for receiving new props - this is the yuck
   componentDidMount() {
     this.cachingRequestManager = this.createCachingRequestManager();
-    this.requestThreadsWithMessages().then(this.onThreadsWithMessagesLoaded);
+    this.requestThreadsWithMessages().then(this.onLoadedThreadsWithMessages);
 
     // TODO(kr) key bindings belong here, since they manipulate this state, or does
     // this affect which element the binding occurs on?
@@ -76,22 +76,60 @@ module.exports = React.createClass({
     return new CachingRequestManager(this.props.threadsCache);
   },
 
-  // TODO(kr) improve typing here
+  // TODO(kr) improve typing of generics here
   requestThreadsWithMessages():Promise<any> {
     return this.cachingRequestManager.requestWithCache(ThreadsWithMessagesAPI.makeRequest, {
       query: this.props.query,
-      maxResults: this.state.maxResults
+      maxResults: this.state.maxResults,
     });
   },
 
-  onThreadsWithMessagesLoaded(threadsWithMessagesResponse: Object):void {
+  // TODO(kr) i get it!!!! :)
+  // but why is this more complicated than the Scroller?  What's the right abstraction here?
+  // the real state here is '{nextPageToken, maxResults}, with implicit {pages, resultSizeEstimate, threads}
+  // the problem here is we want implicit state, we don't want to recompute every time, since
+  // hitting the server is expensive.
+  // should try to back up 2000 feet and see what makes sense.
+  // TODO(kr) improve options map typing
+  requestNextPageOfThreadsWithMessages(options):Promise<any> {
+    console.log('requestNextPageOfThreadsWithMessages');
+    return this.cachingRequestManager.requestWithCache(ThreadsWithMessagesAPI.makeRequest, {
+      query: this.props.query,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken
+    });
+  },
+
+  onLoadedThreadsWithMessages(threadsWithMessagesResponse: Object):void {
+    this.setState({threadsWithMessagesResponse});
+  },
+
+  // Merge it in!
+  // TODO(kr) factor this out to a pageable collection, or something like that?
+  onLoadedNextPageOfThreadsWithMessages(nextPageResponse: Object):void {
+    console.log('onLoadedNextPageOfThreadsWithMessages');
+    var currentResponse = this.state.threadsWithMessagesResponse;
+    var threadsWithMessagesResponse = {
+      nextPageToken: nextPageResponse.nextPageToken,
+      resultSizeEstimate: (currentResponse.resultSizeEstimate || 0) + nextPageResponse.resultSizeEstimate,
+      threadsWithMessages: currentResponse.threadsWithMessages.concat(nextPageResponse.threadsWithMessages),
+    };
     this.setState({threadsWithMessagesResponse});
   },
 
   // TODO(kr) Keeping this as-is with NuclearMail for now, which means it
   // doesn't actually page, but requests a larger set.
   onRequestMoreThreads():void {
-    this.setState({maxResults: this.state.maxResults + this.props.pageSize});
+    console.log('onRequestMoreThreads', this.state.maxResults, this.props.pageSize);
+    var nextMaxResults = this.state.maxResults + this.props.pageSize;
+    this.setState({maxResults: nextMaxResults});
+
+    // TODO(kr) the transition here is breaking down the React abstractions -
+    // is it the state change that drives this?  should instead move
+    this.requestNextPageOfThreadsWithMessages({
+      pageToken: this.state.threadsWithMessagesResponse.nextPageToken,
+      maxResults: nextMaxResults,
+    }).then(this.onLoadedNextPageOfThreadsWithMessages);
   },
 
   // TODO(kr) this is really about a Thread being selected, but not going to refactor

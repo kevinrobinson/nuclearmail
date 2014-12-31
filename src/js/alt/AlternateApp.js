@@ -137,6 +137,8 @@ var App = React.createClass({
     }),
   ],
 
+  // TODO(kr) would be nice to use flow annoations for state and props, but still feels a little
+  // overkill.
   getInitialState(): Object {
     return {
       isServerRequestActive: true, // TODO(kr) re-plumb api to keep this, threading it down
@@ -147,9 +149,13 @@ var App = React.createClass({
     };
   },
 
-  // TODO(kr) this isn't really the API I want, but can add some
-  // value right away.  It'll feel weird to users why these expire
-  // every so often when working interactively.
+  // TODO(kr) this isn't really the caching API I want from the perspective of creating a
+  // specific UI/UX, but for now it can add value quickly for the most common use case, while
+  // having a natural cache invalidation mechanism for a long-lived webapp.
+  // It won't feel intuitive to users why the server hits sometimes happens (e.g., the 1min
+  // expiration is divorced from the UX).  The cache API of 'make a request unless the
+  // cached value is X seconds old' API will feel more natural to users and still stay simple
+  // and the right level of correctness for the UX we're creating.
   createThreadCache() {
     return LRU({
       max: 500,
@@ -183,7 +189,7 @@ var App = React.createClass({
     });
   },
 
-  // TODO(kr) split these mechanics out, they're stateless.
+  // TODO(kr) could split these mechanics out, they're stateless.
   requestLabels() {
     return API.wrap(() =>
       API.execute(gapi.client.gmail.users.labels.list({userId: 'me'})).then(response => response.labels)
@@ -286,7 +292,6 @@ var App = React.createClass({
     );
   }
 });
-
 
 
 React.render(<App />, document.querySelector('#app'));

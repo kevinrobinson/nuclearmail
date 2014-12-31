@@ -29,7 +29,7 @@ function zipThreadsAndMessages(threadsResponse: Object, messagesResponse: Object
   });
 
   return {
-    nextPageToken: threadsResponse.nextPageToken || 0,
+    nextPageToken: threadsResponse.nextPageToken || null,
     resultSizeEstimate: threadsResponse.resultSizeEstimate || null,
     threadsWithMessages: threadsWithMessages,
   };
